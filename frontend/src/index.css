@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-primary-500 min-h-screen relative overflow-x-hidden;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: -10%;
+    left: -10%;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(248, 196, 81, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -15%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(248, 196, 81, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent-500 text-primary-500 font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-2xl hover:bg-accent-400 transform hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-white/10 backdrop-blur-sm text-white font-semibold py-3 px-8 rounded-xl border-2 border-white/20 hover:border-accent-500 hover:bg-white/20 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-2xl p-8 border border-gray-100 relative z-10;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-accent-500 focus:outline-none transition-colors bg-white;
+  }
+
+  .radio-option {
+    @apply flex items-start p-4 border-2 border-gray-200 rounded-xl cursor-pointer transition-all duration-200 hover:border-accent-500 hover:bg-accent-50 bg-white;
+  }
+
+  .radio-option.selected {
+    @apply border-accent-500 bg-accent-50 shadow-md;
+  }
+
+  .progress-step {
+    @apply flex items-center justify-center w-10 h-10 rounded-full font-semibold transition-all duration-300;
+  }
+
+  .progress-step.active {
+    @apply bg-accent-500 text-primary-500 shadow-lg scale-110;
+  }
+
+  .progress-step.completed {
+    @apply bg-green-500 text-white;
+  }
+
+  .progress-step.upcoming {
+    @apply bg-white/20 text-white/60;
+  }
+  
+  .circle-decoration {
+    @apply absolute rounded-full pointer-events-none;
+  }
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-15px);
+  }
+  75% {
+    transform: translateY(-30px) translateX(5px);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  33% {
+    transform: translateY(-15px) translateX(-10px) scale(1.05);
+  }
+  66% {
+    transform: translateY(-25px) translateX(15px) scale(0.95);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+.animate-float {
+  animation: float ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: floatSlow ease-in-out infinite;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
