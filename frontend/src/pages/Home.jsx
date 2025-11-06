@@ -32,7 +32,7 @@ export default function Home() {
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-6">
-            <img src="/logo/logo-white.svg" alt="TalkTu" className="h-16" />
+            <img src="/logo/logo-white.svg" alt="Talktu" className="h-16" />
           </div>
           <p className="text-white/90 text-lg font-medium">Child Development Assessment</p>
         </div>
@@ -47,7 +47,7 @@ export default function Home() {
               Every child learns differently, some through listening, others by doing or talking.
             </p>
             <p className="text-lg text-gray-700 leading-relaxed">
-              Take this <span className="font-semibold text-accent-500">2-minute TalkTu Quick Check</span> to discover how your child is learning, communicating, and growing — and find out if they might need a little extra support along the way.
+              Take this <span className="font-semibold text-accent-500">2-minute Talktu Quick Check</span> to discover how your child is learning, communicating, and growing — and find out if they might need a little extra support along the way.
             </p>
           </div>
 

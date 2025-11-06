@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../config/database');
 const { calculateResults, DOMAIN_MAPPING, POINTS_MAPPING } = require('../utils/scoring');
+const { getQuestionsByAge } = require('../utils/questionsByAge');
 const { Parser } = require('json2csv');
 
 /**
@@ -98,13 +99,15 @@ router.post('/:assessmentId/submit', async (req, res) => {
 
     const childAge = assessmentQuery.rows[0].child_age_years;
 
+    // Get age-appropriate questions to determine domains and points
+    const { questions: ageQuestions } = getQuestionsByAge(childAge);
+
     // Save responses
     for (const response of responses) {
-      const domain = DOMAIN_MAPPING[response.questionNumber];
-      // For pricing question (11), points should be 0. For others, use POINTS_MAPPING
-      const points = POINTS_MAPPING[response.selectedOption] !== undefined 
-        ? POINTS_MAPPING[response.selectedOption] 
-        : 0;
+      // Find the question from age-appropriate set
+      const question = ageQuestions.find(q => q.id === response.questionNumber);
+      const domain = question ? question.domain : 'unknown';
+      const points = question ? (question.points[response.selectedOption] || 0) : 0;
 
       await client.query(
         `INSERT INTO responses (assessment_id, question_number, question_text, selected_option, points, domain)
@@ -128,15 +131,16 @@ router.post('/:assessmentId/submit', async (req, res) => {
     // Save results to database
     await client.query(
       `INSERT INTO results (
-        assessment_id, total_score, max_score, overall_percentage, overall_level,
+        assessment_id, age_group, total_score, max_score, overall_percentage, overall_level,
         speech_language_score, speech_language_max, speech_language_percentage, speech_language_level,
         literacy_score, literacy_max, literacy_percentage, literacy_level,
         numeracy_score, numeracy_max, numeracy_percentage, numeracy_level,
         cognitive_score, cognitive_max, cognitive_percentage, cognitive_level,
         pricing_preference, red_flags, recommendations
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
       [
         assessmentId,
+        results.metadata.ageGroup,
         results.overall.totalScore,
         results.overall.maxScore,
         results.overall.percentage,
@@ -255,6 +259,7 @@ router.get('/export/csv', async (req, res) => {
         a.primary_language,
         a.concerns,
         a.platform_interest,
+        r.age_group,
         r.total_score,
         r.overall_percentage,
         r.overall_level,

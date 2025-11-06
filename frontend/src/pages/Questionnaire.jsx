@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, CheckCircle, Loader } from 'lucide-react'
-import { QUESTIONS } from '../data/questions'
+import { getQuestionsByAge } from '../data/questionsByAge'
 import { assessmentAPI } from '../services/api'
 
 export default function Questionnaire() {
@@ -10,6 +10,7 @@ export default function Questionnaire() {
   const [responses, setResponses] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [questionData, setQuestionData] = useState(null)
 
   useEffect(() => {
     // Check if parent and child info exists
@@ -18,13 +19,28 @@ export default function Questionnaire() {
     
     if (!parentInfo || !childInfo) {
       navigate('/parent-info')
+      return
     }
+
+    // Get age-appropriate questions
+    const child = JSON.parse(childInfo)
+    const ageYears = parseInt(child.childAgeYears)
+    const ageBasedQuestions = getQuestionsByAge(ageYears)
+    setQuestionData(ageBasedQuestions)
   }, [navigate])
 
-  const question = QUESTIONS[currentQuestion]
-  const totalQuestions = QUESTIONS.length
+  if (!questionData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="w-8 h-8 animate-spin text-accent-500" />
+      </div>
+    )
+  }
+
+  const { questions, title, subtitle } = questionData
+  const question = questions[currentQuestion]
+  const totalQuestions = questions.length
   const progress = ((currentQuestion + 1) / totalQuestions) * 100
-  const isPricingQuestion = question.domain === 'pricing'
 
   const handleOptionSelect = (optionValue) => {
     setResponses({
@@ -76,10 +92,10 @@ export default function Questionnaire() {
 
       const { assessmentId } = await assessmentAPI.startAssessment(assessmentData)
 
-      // Step 2: Submit responses
-      const formattedResponses = QUESTIONS.map((q, index) => ({
-        questionNumber: q.number,
-        questionText: q.question,
+      // Step 2: Submit responses (using age-appropriate questions)
+      const formattedResponses = questions.map((q, index) => ({
+        questionNumber: q.id,
+        questionText: q.text,
         selectedOption: responses[index]
       }))
 
@@ -111,7 +127,13 @@ export default function Questionnaire() {
       <div className="max-w-3xl w-full animate-fade-in relative z-10">
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src="/logo/logo-white.svg" alt="TalkTu" className="h-12 mx-auto" />
+          <img src="/logo/logo-white.svg" alt="Talktu" className="h-12 mx-auto" />
+        </div>
+
+        {/* Age Group Title */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
+          <p className="text-white/70 text-sm">{subtitle}</p>
         </div>
         
         {/* Progress bar */}
@@ -132,43 +154,28 @@ export default function Questionnaire() {
 
         {/* Question card */}
         <div className="card mb-6">
-          {/* Domain tag or Pricing tag */}
-          {!isPricingQuestion ? (
-            <div className="inline-block bg-accent-100 text-accent-700 px-4 py-1 rounded-full text-sm font-semibold mb-4 border border-accent-200">
-              {question.domain.replace('_', ' ').split(' ').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}
-            </div>
-          ) : (
-            <div className="inline-block bg-primary-100 text-primary-700 px-4 py-1 rounded-full text-sm font-semibold mb-4 border border-primary-200">
-              💰 Pricing Feedback (Optional)
-            </div>
-          )}
+          {/* Domain tag */}
+          <div className="inline-block bg-accent-100 text-accent-700 px-4 py-1 rounded-full text-sm font-semibold mb-4 border border-accent-200">
+            {question.domain.replace('_', ' ').split(' ').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ')}
+          </div>
 
           {/* Question */}
           <h2 className="text-2xl font-bold text-primary-500 mb-6 leading-relaxed">
-            {question.question}
+            {question.text}
           </h2>
 
           {/* Text Input for Pricing Question */}
           {question.isTextInput ? (
-            <div className="space-y-3">
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-500">₦</span>
-                <input
-                  type="number"
-                  name={`question-${currentQuestion}`}
-                  value={responses[currentQuestion] || ''}
-                  onChange={(e) => handleOptionSelect(e.target.value)}
-                  placeholder={question.placeholder}
-                  min="0"
-                  step="1000"
-                  className="w-full pl-12 pr-4 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                />
-              </div>
-              <p className="text-sm text-gray-500 ml-1">
-                💡 Enter the monthly amount you'd be comfortable paying (or enter 0 if you prefer free options)
-              </p>
+            <div className="mb-4">
+              <input
+                type={question.inputType || 'text'}
+                placeholder={question.placeholder || ''}
+                value={responses[currentQuestion] || ''}
+                onChange={(e) => handleOptionSelect(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-accent-500 transition-colors text-lg"
+              />
             </div>
           ) : (
             /* Multiple Choice Options */
@@ -187,22 +194,13 @@ export default function Questionnaire() {
                     className="sr-only"
                   />
                   <div className="flex items-center w-full">
-                    <span className="text-2xl mr-3">{option.emoji}</span>
                     <span className="flex-1 text-gray-700">{option.label}</span>
                     {responses[currentQuestion] === option.value && (
-                      <CheckCircle className="w-6 h-6 text-blue-600 ml-2" />
+                      <CheckCircle className="w-6 h-6 text-accent-600 ml-2" />
                     )}
                   </div>
                 </label>
               ))}
-            </div>
-          )}
-
-          {/* Optional note for pricing question */}
-          {isPricingQuestion && (
-            <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3 text-purple-700 text-sm">
-              ℹ️ <strong>Note:</strong> This question doesn't affect your assessment results. 
-              It helps us understand what families might value in our services.
             </div>
           )}
 
@@ -259,11 +257,6 @@ export default function Questionnaire() {
             </button>
           )}
         </div>
-
-        {/* Helper text */}
-        <p className="text-center text-sm text-gray-500 mt-6">
-          All questions must be answered to complete the assessment
-        </p>
       </div>
     </div>
   )

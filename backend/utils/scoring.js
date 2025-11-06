@@ -1,10 +1,18 @@
 /**
- * Hybrid Scoring System
- * Combines domain-based scoring with overall assessment
- * and pattern recognition for personalized recommendations
+ * Age-Based Hybrid Scoring System
+ * Supports 3 age groups with domain-based scoring and pattern recognition
  */
 
-// Domain mapping for questions
+const { getQuestionsByAge, getAgeGroup, THRESHOLDS } = require('./questionsByAge');
+
+// Points mapping for age-based questions (A=2, B=1, C=0)
+const POINTS_MAPPING = {
+  'A': 2,
+  'B': 1,
+  'C': 0
+};
+
+// Legacy mapping for backward compatibility (if needed)
 const DOMAIN_MAPPING = {
   1: 'speech_language',
   2: 'speech_language', 
@@ -16,26 +24,15 @@ const DOMAIN_MAPPING = {
   8: 'cognitive',
   9: 'cognitive',
   10: 'cognitive',
-  11: 'pricing' // Not scored - just for metrics
-};
-
-// Points mapping (pricing question not scored)
-const POINTS_MAPPING = {
-  'A': 3,
-  'B': 2,
-  'C': 1,
-  'D': 0,
-  'E': 0, // Pricing options don't contribute to score
-  'F': 0,
-  'G': 0,
-  'H': 0,
-  'I': 0
+  11: 'pricing'
 };
 
 /**
- * Calculate domain scores from responses
+ * Calculate domain scores from responses with age awareness
  */
-function calculateDomainScores(responses) {
+function calculateDomainScores(responses, ageYears) {
+  const { questions: ageQuestions } = getQuestionsByAge(ageYears);
+  
   const domains = {
     speech_language: { score: 0, max: 0, questions: [] },
     literacy: { score: 0, max: 0, questions: [] },
@@ -44,18 +41,16 @@ function calculateDomainScores(responses) {
   };
 
   responses.forEach(response => {
-    const domain = DOMAIN_MAPPING[response.question_number];
+    // Find the question from age-appropriate set
+    const question = ageQuestions.find(q => q.id === response.question_number);
     
-    // Skip pricing question (domain: 'pricing') from scoring
-    if (domain && domains[domain] && domain !== 'pricing') {
-      // Handle numeric values (for pricing) vs letter options (A/B/C/D)
-      const points = POINTS_MAPPING[response.selected_option] !== undefined 
-        ? POINTS_MAPPING[response.selected_option] 
-        : 0;
+    // Exclude pricing question from domain scoring
+    if (question && question.domain !== 'pricing' && domains[question.domain]) {
+      const points = question.points[response.selected_option] || 0;
       
-      domains[domain].score += points;
-      domains[domain].max += 3; // Max points per question
-      domains[domain].questions.push({
+      domains[question.domain].score += points;
+      domains[question.domain].max += 2; // Max 2 points per question
+      domains[question.domain].questions.push({
         number: response.question_number,
         points: points,
         option: response.selected_option
@@ -95,71 +90,103 @@ function getDomainColor(percentage) {
 }
 
 /**
- * Calculate overall score and level
+ * Calculate overall score and level with age-based thresholds
  */
-function calculateOverallScore(responses) {
+function calculateOverallScore(responses, ageYears) {
   let totalScore = 0;
-  // Only count the 10 assessment questions (exclude pricing question)
-  const assessmentResponses = responses.filter(r => r.question_number <= 10);
-  let maxScore = assessmentResponses.length * 3;
-
-  assessmentResponses.forEach(response => {
-    totalScore += POINTS_MAPPING[response.selected_option];
+  const { questions: ageQuestions } = getQuestionsByAge(ageYears);
+  
+  // Filter out pricing question (question 11) from scoring
+  const scorableResponses = responses.filter(r => r.question_number !== 11);
+  
+  scorableResponses.forEach(response => {
+    const question = ageQuestions.find(q => q.id === response.question_number);
+    if (question && question.domain !== 'pricing') {
+      totalScore += question.points[response.selected_option] || 0;
+    }
   });
 
-  const percentage = (totalScore / maxScore) * 100;
+  const maxScore = scorableResponses.length * 2; // Max 2 points per question (excluding pricing)
+  const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+  
+  // Get age-appropriate thresholds
+  const ageGroup = getAgeGroup(ageYears);
+  const thresholds = THRESHOLDS[ageGroup];
   
   let level;
-  if (percentage >= 87) level = 'advanced';
-  else if (percentage >= 63) level = 'on_track';
-  else if (percentage >= 37) level = 'needs_support';
-  else level = 'needs_intensive_support';
+  if (totalScore >= thresholds.excellent.min) {
+    level = thresholds.excellent.level;
+  } else if (totalScore >= thresholds.moderate.min) {
+    level = thresholds.moderate.level;
+  } else {
+    level = thresholds.concern.level;
+  }
 
   return {
     totalScore,
     maxScore,
     percentage: Math.round(percentage * 100) / 100,
-    level
+    level,
+    ageGroup
   };
 }
 
 /**
- * Detect red flags (critical concerns)
+ * Detect red flags (critical concerns) with age-based patterns
  */
 function detectRedFlags(responses, domains, childAge) {
   const redFlags = [];
+  const ageGroup = getAgeGroup(childAge);
+  const { questions: ageQuestions } = getQuestionsByAge(childAge);
 
-  // Check for D answers (0 points) - critical indicators
-  const criticalAnswers = responses.filter(r => r.selected_option === 'D');
+  // Check for C answers (0 points) - critical indicators
+  const criticalAnswers = responses.filter(r => r.selected_option === 'C');
   
-  if (criticalAnswers.length > 0) {
-    criticalAnswers.forEach(answer => {
-      if (answer.question_number === 1) {
-        redFlags.push('Severe difficulty understanding basic instructions');
-      } else if (answer.question_number === 2) {
-        redFlags.push('Significant speech and expression challenges');
-      } else if (answer.question_number === 9) {
-        redFlags.push('Speech clarity concerns - may need speech therapy evaluation');
-      } else if (answer.question_number === 8) {
-        redFlags.push('Attention span concern - difficulty focusing on tasks');
-      }
-    });
+  // Age-specific red flag patterns
+  if (ageGroup === '2-3') {
+    // Ages 2-3 red flags
+    if (criticalAnswers.some(a => a.question_number === 6)) {
+      redFlags.push('Lack of pretend play - possible early autism indicator');
+    }
+    if (criticalAnswers.some(a => [4, 10].includes(a.question_number))) {
+      redFlags.push('Auditory processing concern - difficulty following instructions');
+    }
+    if (criticalAnswers.filter(a => [1, 2, 5, 8, 9].includes(a.question_number)).length >= 3) {
+      redFlags.push('Significant expressive language delay');
+    }
+  } else if (ageGroup === '4-5') {
+    // Ages 4-5 red flags
+    if (criticalAnswers.some(a => [1, 6, 7].includes(a.question_number))) {
+      redFlags.push('Phonological awareness deficit - dyslexia risk indicator');
+    }
+    if (criticalAnswers.filter(a => [3, 9].includes(a.question_number)).length >= 2) {
+      redFlags.push('Math concept delays - dyscalculia risk');
+    }
+    if (criticalAnswers.some(a => a.question_number === 10)) {
+      redFlags.push('Narrative skills deficit - language development concern');
+    }
+  } else if (ageGroup === '6-8') {
+    // Ages 6-8 red flags
+    if (criticalAnswers.some(a => [2, 8].includes(a.question_number))) {
+      redFlags.push('Reading comprehension below grade level');
+    }
+    if (criticalAnswers.filter(a => [5, 8, 9].includes(a.question_number)).length >= 2) {
+      redFlags.push('Math reasoning significantly below grade level');
+    }
+    if (criticalAnswers.some(a => a.question_number === 10)) {
+      redFlags.push('Executive function/working memory concern');
+    }
   }
 
-  // Domain-level red flags
-  if (domains.speech_language.percentage < 25) {
+  // Domain-level red flags (universal)
+  if (domains.speech_language.percentage < 30) {
     redFlags.push('Critical speech and language development delay');
   }
-  if (domains.cognitive.percentage < 25 && childAge >= 4) {
-    redFlags.push('Significant attention and memory concerns');
+  if (domains.cognitive.percentage < 30) {
+    redFlags.push('Significant cognitive processing concerns');
   }
-
-  // Age-specific red flags
-  if (childAge >= 5) {
-    const literacyScore = domains.literacy.percentage;
-    if (literacyScore < 33) {
-      redFlags.push('Literacy readiness concern for age group');
-    }
+  if (ageGroup !== '2-3' && domains.literacy && domains.literacy.percentage < 30) {
+    redFlags.push('Severe literacy readiness concern for age group');
   }
 
   return redFlags;
@@ -228,7 +255,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: `Your child's speech development is significantly below expected milestones for age ${childAge}. Early intervention is crucial - children who receive speech therapy before age 5 show 70% better outcomes.`,
         icon: '🗣️',
         whatThisMeans: 'Your child may struggle to express needs, form friendships, or succeed in school without support.',
-        nextSteps: 'Book a professional speech assessment with TalkTu within 2 weeks. We offer affordable pediatric speech therapy (₦5,000-15,000/session).',
+        nextSteps: 'Book a professional speech assessment with Talktu within 2 weeks. We offer affordable pediatric speech therapy (₦5,000-15,000/session).',
         activities: [
           '✓ Daily 15-min conversation practice (builds vocabulary by 30%)',
           '✓ Picture book discussions (improves sentence structure)',
@@ -241,7 +268,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: `Your child's language skills are developing but need focused attention. With consistent practice (3-4 sessions weekly), most children catch up within 3-6 months.`,
         icon: '🗣️',
         whatThisMeans: 'Your child can communicate but may have limited vocabulary or unclear speech, affecting confidence.',
-        nextSteps: 'Try TalkTu\'s guided speech exercises (free for first month) or book a consultation (₦3,000).',
+        nextSteps: 'Try Talktu\'s guided speech exercises (free for first month) or book a consultation (₦3,000).',
         activities: [
           '✓ Name and describe objects during play (expands vocabulary)',
           '✓ Practice 2-step instructions daily (improves listening)',
@@ -261,8 +288,8 @@ function getDomainRecommendation(domainKey, domain, childAge) {
           ? 'Risk of reading difficulties, lower confidence, and academic struggles across all subjects.'
           : 'Your child isn\'t building the foundation needed for reading success in school.',
         nextSteps: childAge >= 5
-          ? 'Book a reading assessment with TalkTu (₦5,000). We offer specialized literacy programs.'
-          : 'Start TalkTu\'s pre-reading games (free trial available).',
+          ? 'Book a reading assessment with Talktu (₦5,000). We offer specialized literacy programs.'
+          : 'Start Talktu\'s pre-reading games (free trial available).',
         activities: [
           '✓ Daily alphabet practice - 10 min (letter recognition)',
           '✓ Rhyming games during car rides (phonemic awareness)',
@@ -275,7 +302,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: 'Your child has some literacy skills but needs more practice to become a confident reader. Daily 20-minute reading sessions can improve skills by 40% in 8 weeks.',
         icon: '📖',
         whatThisMeans: 'Your child may read slowly, avoid reading tasks, or struggle with new words.',
-        nextSteps: 'Use TalkTu\'s interactive reading app (₦2,000/month) or book group literacy sessions (₦8,000/month).',
+        nextSteps: 'Use Talktu\'s interactive reading app (₦2,000/month) or book group literacy sessions (₦8,000/month).',
         activities: [
           '✓ Read aloud 20 min daily (improves fluency & comprehension)',
           '✓ Letter-sound games with household items (phonics)',
@@ -290,7 +317,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: `Your child is struggling with basic number concepts expected at age ${childAge}. Early math skills predict future academic success more than reading skills.`,
         icon: '🔢',
         whatThisMeans: 'Difficulty with counting, quantity, and number recognition will impact all math learning and daily life skills.',
-        nextSteps: 'Book a math readiness assessment (₦4,000). TalkTu offers playful math tutoring (₦6,000-12,000/month).',
+        nextSteps: 'Book a math readiness assessment (₦4,000). Talktu offers playful math tutoring (₦6,000-12,000/month).',
         activities: [
           '✓ Count everything daily - stairs, toys, food (builds number sense)',
           '✓ Compare quantities: more/less/same (critical math concept)',
@@ -303,7 +330,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: 'Your child understands basic numbers but needs more practice for confidence. Daily number activities make math feel natural and fun.',
         icon: '🔢',
         whatThisMeans: 'Your child may count incorrectly, struggle with simple addition, or avoid number tasks.',
-        nextSteps: 'Try TalkTu\'s number games app (₦1,500/month) or join our math playgroup (₦10,000/month, 4 kids max).',
+        nextSteps: 'Try Talktu\'s number games app (₦1,500/month) or join our math playgroup (₦10,000/month, 4 kids max).',
         activities: [
           '✓ Count objects up to 20 together (strengthens counting)',
           '✓ Number recognition games 1-10 (visual-number connection)',
@@ -318,7 +345,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: `Short attention span at age ${childAge} may indicate underlying issues. Early assessment can identify ADHD, sensory processing issues, or other needs requiring specialized support.`,
         icon: '🧠',
         whatThisMeans: 'Your child may have tantrums, difficulty following instructions, forget tasks, or struggle in structured environments like school.',
-        nextSteps: 'Book a developmental assessment with TalkTu\'s child psychologist (₦8,000). We also offer parent coaching (₦5,000/session).',
+        nextSteps: 'Book a developmental assessment with Talktu\'s child psychologist (₦8,000). We also offer parent coaching (₦5,000/session).',
         activities: [
           '✓ Very short activities (2-3 min) with praise (builds stamina)',
           '✓ Memory games with 2-3 items (strengthens working memory)',
@@ -331,7 +358,7 @@ function getDomainRecommendation(domainKey, domain, childAge) {
         description: 'Your child has short attention span typical for age but can benefit from activities that build focus gradually. Most children show 50% improvement in 6-8 weeks.',
         icon: '🧠',
         whatThisMeans: 'Your child may lose interest quickly, have trouble waiting, or need many reminders to complete tasks.',
-        nextSteps: 'Try TalkTu\'s attention-building games (₦2,000/month) or book a focus skills workshop (₦7,000 one-time).',
+        nextSteps: 'Try Talktu\'s attention-building games (₦2,000/month) or book a focus skills workshop (₦7,000 one-time).',
         activities: [
           '✓ Simple puzzles 5-10 min daily (builds sustained attention)',
           '✓ Memory games starting with 3 items (working memory)',
@@ -366,13 +393,14 @@ function formatDomainName(domain) {
 }
 
 /**
- * Main scoring function
+ * Main scoring function with age-based logic
  */
 function calculateResults(responses, childAge) {
-  const domains = calculateDomainScores(responses);
-  const overall = calculateOverallScore(responses);
+  const domains = calculateDomainScores(responses, childAge);
+  const overall = calculateOverallScore(responses, childAge);
   const redFlags = detectRedFlags(responses, domains, childAge);
   const recommendations = generateRecommendations(domains, overall, childAge, redFlags);
+  const ageGroup = getAgeGroup(childAge);
 
   return {
     overall,
@@ -382,7 +410,8 @@ function calculateResults(responses, childAge) {
     metadata: {
       totalQuestions: responses.length,
       completedAt: new Date(),
-      childAge
+      childAge,
+      ageGroup
     }
   };
 }
@@ -391,5 +420,6 @@ module.exports = {
   calculateResults,
   DOMAIN_MAPPING,
   POINTS_MAPPING,
-  formatDomainName
+  formatDomainName,
+  getAgeGroup
 };

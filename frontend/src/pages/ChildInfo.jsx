@@ -54,7 +54,7 @@ export default function ChildInfo() {
       <div className="max-w-2xl w-full animate-fade-in relative z-10">
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src="/logo/logo-white.svg" alt="TalkTu" className="h-12 mx-auto" />
+          <img src="/logo/logo-white.svg" alt="Talktu" className="h-12 mx-auto" />
         </div>
         
         {/* Progress indicator */}

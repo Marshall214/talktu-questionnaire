@@ -54,6 +54,9 @@ const createTables = async () => {
         id SERIAL PRIMARY KEY,
         assessment_id VARCHAR(50) UNIQUE REFERENCES assessments(assessment_id) ON DELETE CASCADE,
         
+        -- Age Group Tracking
+        age_group VARCHAR(10),
+        
         -- Overall Score
         total_score INTEGER NOT NULL,
         max_score INTEGER NOT NULL,

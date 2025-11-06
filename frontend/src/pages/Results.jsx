@@ -132,7 +132,7 @@ export default function Results() {
       <div className="max-w-5xl mx-auto relative z-10">
         {/* Logo */}
         <div className="text-center mb-6">
-          <img src="/logo/logo-white.svg" alt="TalkTu" className="h-14 mx-auto" />
+          <img src="/logo/logo-white.svg" alt="Talktu" className="h-14 mx-auto" />
         </div>
         
         {/* Header */}
@@ -201,7 +201,7 @@ export default function Results() {
               <div className="w-12 h-12 bg-accent-500 rounded-full flex items-center justify-center mr-3 shadow-lg">
                 <Sparkles className="w-6 h-6 text-primary-500" />
               </div>
-              <h2 className="text-3xl font-bold">Introducing TalkTu Platform</h2>
+              <h2 className="text-3xl font-bold">Introducing Talktu Platform</h2>
             </div>
             
             <p className="text-lg mb-6 text-white/90 leading-relaxed">
@@ -227,7 +227,7 @@ export default function Results() {
             </div>
 
             <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-accent-500/40">
-              <h3 className="font-bold text-xl mb-3">✨ What TalkTu Offers:</h3>
+              <h3 className="font-bold text-xl mb-3">✨ What Talktu Offers:</h3>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-start">
                   <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-accent-500" />
@@ -250,7 +250,7 @@ export default function Results() {
               {!waitlistSubmitted && (
                 <div className="bg-white rounded-lg p-6 text-primary-500">
                   <p className="font-bold text-lg mb-4 text-center">
-                    Would you be interested in joining TalkTu when we launch?
+                    Would you be interested in joining Talktu when we launch?
                   </p>
                   <div className="flex gap-4 justify-center">
                     <button
@@ -332,7 +332,7 @@ export default function Results() {
                   🎁 <strong>Early Access Benefits:</strong>
                 </p>
                 <ul className="text-xs text-gray-600 text-left space-y-1 ml-4">
-                  <li>✓ First to try TalkTu's AI platform</li>
+                  <li>✓ First to try Talktu's AI platform</li>
                   <li>✓ Special launch discount (up to 50% off)</li>
                   <li>✓ Free consultation with our child development experts</li>
                   <li>✓ Priority support and personalized onboarding</li>
@@ -340,7 +340,7 @@ export default function Results() {
               </div>
 
               <p className="text-sm text-gray-600 mb-6">
-                We'll email you when TalkTu launches. Get ready for an amazing journey! 🚀
+                We'll email you when Talktu launches. Get ready for an amazing journey! 🚀
               </p>
 
               <button
