@@ -270,7 +270,6 @@ router.get('/export/csv', async (req, res) => {
         r.pricing_preference
       FROM assessments a
       LEFT JOIN results r ON a.assessment_id = r.assessment_id
-      WHERE a.completed = true
       ORDER BY a.created_at DESC
     `;
 
@@ -279,8 +278,16 @@ router.get('/export/csv', async (req, res) => {
     const parser = new Parser();
     const csv = parser.parse(result.rows);
 
+    // Generate filename with timestamp to prevent caching
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const filename = `talktu_assessments_${timestamp}.csv`;
+
+    // Prevent caching
     res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=talktu_assessments.csv');
+    res.header('Content-Disposition', `attachment; filename=${filename}`);
+    res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
     res.send(csv);
 
   } catch (error) {
